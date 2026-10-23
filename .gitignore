@@ -1,0 +1,20 @@
+# Entornos de Python
+.venv/
+entorno/
+word2vec-env/
+word2vec-env313/
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+
+# Modelos generados
+resultados/*.model
+resultados/*.npz
+
+# Corpus grandes
+datos/*
+!datos/corpus_prueba.txt
+!datos/corpus_10mb.txt
+get-pip.py
+word2vec-env313

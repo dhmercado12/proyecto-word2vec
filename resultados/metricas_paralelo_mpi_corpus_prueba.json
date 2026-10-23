@@ -1,0 +1,37 @@
+{
+  "archivo": "/head/NFS/mpiuser/proyecto_word2vec/datos/corpus_prueba.txt",
+  "tamano_bytes": 528,
+  "tamano_mb": 0.001,
+  "oraciones": 8,
+  "palabras_totales": 74,
+  "vocabulario": 50,
+  "dimension": 100,
+  "ventana": 5,
+  "epocas": 20,
+  "muestras_negativas": 5,
+  "procesos": 2,
+  "nodos": [
+    "compute1",
+    "compute2"
+  ],
+  "oraciones_por_proceso": [
+    4,
+    4
+  ],
+  "palabras_por_proceso": [
+    39,
+    35
+  ],
+  "tiempo_vocabulario_segundos": 2.6535,
+  "tiempo_entrenamiento_segundos": 0.8784,
+  "tiempo_guardado_segundos": 0.0228,
+  "tiempo_total_segundos": 3.5611,
+  "palabras_por_segundo": 84.24,
+  "memoria_maxima_por_proceso_mb": [
+    115.41,
+    115.4
+  ],
+  "memoria_maxima_mb": 115.41,
+  "memoria_acumulada_picos_mb": 230.81,
+  "modelo": "/head/NFS/mpiuser/proyecto_word2vec/resultados/modelo_paralelo_mpi_corpus_prueba.model"
+}

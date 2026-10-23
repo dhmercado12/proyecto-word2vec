@@ -1,0 +1,20 @@
+{
+  "archivo": "/head/NFS/mpiuser/proyecto_word2vec/datos/corpus_prueba.txt",
+  "tamano_bytes": 528,
+  "tamano_mb": 0.001,
+  "oraciones": 8,
+  "palabras_totales": 74,
+  "vocabulario": 50,
+  "dimension": 100,
+  "ventana": 5,
+  "epocas": 20,
+  "muestras_negativas": 5,
+  "procesos": 1,
+  "tiempo_vocabulario_segundos": 0.003,
+  "tiempo_entrenamiento_segundos": 0.3298,
+  "tiempo_guardado_segundos": 0.0106,
+  "tiempo_total_segundos": 0.3983,
+  "palabras_por_segundo": 224.37,
+  "memoria_maxima_mb": 105.43,
+  "modelo": "/head/NFS/mpiuser/proyecto_word2vec/resultados/modelo_secuencial_corpus_prueba.model"
+}
