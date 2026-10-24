@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Word2Vec Lab | Panel de experimentos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">W2</div>
+                <div><strong>Word2Vec Lab</strong><span>Laboratorio de experimentos</span></div>
+            </div>
+            <div class="nav-label">ESPACIO DE TRABAJO</div>
+            <a class="nav-link active" href="#inicio"><span>◫</span> Resumen</a>
+            <a class="nav-link" href="#ejecutar"><span>▶</span> Nuevo experimento</a>
+            <a class="nav-link" href="#metricas"><span>▥</span> Métricas</a>
+            <a class="nav-link" href="#historial"><span>◷</span> Historial</a>
+            <div class="sidebar-bottom">
+                <div class="status-dot"></div>
+                <div><strong>Modo local</strong><span>Windows · Flask</span></div>
+            </div>
+        </aside>
+
+        <main class="main-content" id="inicio">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">PROYECTO DE SISTEMAS PARALELOS</p>
+                    <h1>Panel de experimentos</h1>
+                    <p class="subheading">Entrena modelos Word2Vec y analiza su rendimiento.</p>
+                </div>
+                <div class="top-chip"><span class="pulse"></span> Aplicación local</div>
+            </header>
+
+            <section class="metric-grid" id="metricas">
+                <article class="metric-card">
+                    <div class="metric-top"><span>Experimentos guardados</span><span class="metric-icon purple">▦</span></div>
+                    <div class="metric-value" id="totalExperimentos">0</div>
+                    <div class="metric-foot">Archivos JSON encontrados</div>
+                </article>
+                <article class="metric-card">
+                    <div class="metric-top"><span>Último tiempo total</span><span class="metric-icon blue">◷</span></div>
+                    <div class="metric-value" id="ultimoTiempo">—</div>
+                    <div class="metric-foot">Según las métricas guardadas</div>
+                </article>
+                <article class="metric-card">
+                    <div class="metric-top"><span>Último vocabulario</span><span class="metric-icon green">Aa</span></div>
+                    <div class="metric-value" id="ultimoVocabulario">—</div>
+                    <div class="metric-foot">Cantidad de palabras únicas</div>
+                </article>
+                <article class="metric-card">
+                    <div class="metric-top"><span>Estado del trabajo</span><span class="metric-icon orange">●</span></div>
+                    <div class="metric-value small-value" id="estadoGeneral">Listo</div>
+                    <div class="metric-foot" id="duracionTrabajo">Sin ejecución activa</div>
+                </article>
+            </section>
+
+            <section class="content-grid">
+                <article class="panel run-panel" id="ejecutar">
+                    <div class="panel-heading">
+                        <div><p class="eyebrow">CONFIGURACIÓN</p><h2>Nuevo experimento</h2></div>
+                        <span class="panel-symbol">✦</span>
+                    </div>
+                    <p class="panel-description">Selecciona un corpus y el método de entrenamiento.</p>
+
+                    
+<form id="formExperimento">
+    <label for="corpus">Corpus de texto</label>
+    <select id="corpus" required>
+        <option value="">Cargando corpus disponibles...</option>
+    </select>
+    <p class="field-help">Selecciona un archivo TXT de la carpeta datos/.</p>
+
+    <label for="modo">Método de entrenamiento</label>
+    <select id="modo">
+        <option value="secuencial">Word2Vec secuencial</option>
+        <option value="paralelo">Word2Vec paralelo con MPI (pendiente)</option>
+    </select>
+
+    <div class="config-section">
+        <p class="eyebrow">PARÁMETROS WORD2VEC</p>
+
+        <label for="algoritmo">Algoritmo</label>
+        <select id="algoritmo">
+            <option value="skipgram">Skip-gram</option>
+            <option value="cbow">CBOW</option>
+        </select>
+        <p class="field-help">Selecciona cómo aprenderá el modelo las representaciones.</p>
+
+        <div class="config-fields">
+            <div>
+                <label for="dimension">Dimensión</label>
+                <input id="dimension" type="number" min="10" max="500" value="100" required>
+            </div>
+
+            <div>
+                <label for="ventana">Ventana</label>
+                <input id="ventana" type="number" min="1" max="20" value="5" required>
+            </div>
+
+            <div>
+                <label for="epocas">Épocas</label>
+                <input id="epocas" type="number" min="1" max="100" value="20" required>
+            </div>
+
+            <div>
+                <label for="min_count">Frecuencia mínima</label>
+                <input id="min_count" type="number" min="1" max="100" value="1" required>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-note">
+        <span>ⓘ</span>
+        <p>La ejecución secuencial utilizará un trabajador para facilitar la comparación con MPI. Los parámetros seleccionados se guardarán en las métricas.</p>
+    </div>
+
+    <button class="primary-button" id="botonEjecutar" type="submit">
+        <span>▶</span> Iniciar entrenamiento
+    </button>
+</form>
+
+                    <div class="message" id="mensaje" role="status"></div>
+                </article>
+
+                <article class="panel activity-panel">
+                    <div class="panel-heading">
+                        <div><p class="eyebrow">SEGUIMIENTO</p><h2>Actividad del proceso</h2></div>
+                        <span class="live-label"><span class="pulse"></span> EN VIVO</span>
+                    </div>
+                    <div class="process-status">
+                        <div class="process-orb" id="orbEstado">Ⅱ</div>
+                        <div><strong id="estadoProceso">Esperando un experimento</strong><p id="detalleProceso">Inicia un entrenamiento para ver su salida.</p></div>
+                    </div>
+                    <div class="terminal">
+                        <div class="terminal-head"><span></span><span></span><span></span><label>salida del entrenamiento</label></div>
+                        <pre id="salidaProceso">Word2Vec Lab v1.0
+Listo para ejecutar un experimento...</pre>
+                    </div>
+                    <button class="secondary-button" id="actualizarBtn" type="button">Actualizar datos</button>
+                </article>
+            </section>
+
+            <section class="panel history-panel" id="historial">
+                <div class="panel-heading">
+                    <div><p class="eyebrow">RESULTADOS</p><h2>Historial de experimentos</h2></div>
+                    <span class="count-pill" id="contadorHistorial">0 resultados</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Archivo de métricas</th><th>Modo</th><th>Tiempo total</th><th>Vocabulario</th><th>Fecha</th></tr></thead>
+                        <tbody id="tablaMetricas"><tr><td colspan="5" class="empty-row">Todavía no hay métricas. Ejecuta tu primer experimento.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <footer>Word2Vec Lab <span>·</span> Proyecto académico de Sistemas Paralelos</footer>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
