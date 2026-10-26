@@ -1,9 +1,11 @@
+import argparse
 import os
 import time
 import json
 import hashlib
 import platform
 from gensim.models import Word2Vec
+from mpi4py import MPI
 
 if platform.system() == "Windows":
     import psutil
@@ -17,6 +19,8 @@ dimension = 100
 ventana = 5
 epocas = 20
 negativos = 5
+min_count = 1
+algoritmo = "skipgram"
 
 def hash_estable(texto):
     return int.from_bytes(
@@ -53,11 +57,29 @@ def leer_fragmento(ruta, rango, total):
                 yield palabras
 
 if rango == 0:
-    ruta = input("Introduce la ruta del archivo TXT: ").strip().strip('"').strip("'")
-else:
-    ruta = None
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True)
+    argumentos = parser.parse_args()
 
-ruta = comunicador.bcast(ruta, root=0)
+    with open(argumentos.config, "r", encoding="utf-8") as archivo:
+        configuracion = json.load(archivo)
+else:
+    configuracion = None
+
+configuracion = comunicador.bcast(configuracion, root=0)
+
+ruta = configuracion["corpus"]
+nombre_resultado = configuracion["nombre"]
+dimension = int(configuracion["dimension"])
+ventana = int(configuracion["ventana"])
+epocas = int(configuracion["epocas"])
+min_count = int(configuracion["min_count"])
+algoritmo = configuracion["algoritmo"]
+
+if algoritmo not in ("skipgram", "cbow"):
+    raise ValueError("Algoritmo no válido")
+
+sg = 1 if algoritmo == "skipgram" else 0
 
 archivos_validos = comunicador.allgather(os.path.isfile(ruta))
 
@@ -75,7 +97,7 @@ if len(set(tamanos)) != 1:
         print("Error: el archivo tiene tamaños diferentes entre nodos.")
     raise SystemExit(1)
 
-nombre = os.path.splitext(os.path.basename(ruta))[0]
+nombre = nombre_resultado
 directorio = os.path.dirname(os.path.abspath(__file__))
 resultados = os.path.join(directorio, "resultados")
 
@@ -124,11 +146,11 @@ palabras_totales = comunicador.allreduce(
 modelo = Word2Vec(
     vector_size=dimension,
     window=ventana,
-    min_count=1,
+    min_count=min_count,
     workers=1,
     epochs=epocas,
     seed=42,
-    sg=1,
+    sg=sg,
     negative=negativos,
     sample=0,
     shrink_windows=False,

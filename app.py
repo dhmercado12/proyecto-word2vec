@@ -16,6 +16,7 @@ HOST_MPI = "mpiuser@192.168.44.133"
 CARPETA_MPI = "/head/NFS/mpiuser/proyecto_word2vec"
 PYTHON_MPI = f"{CARPETA_MPI}/word2vec-env/bin/python"
 MPIRUN = "/opt/openmpi/4.1.5/bin/mpirun"
+HOSTFILE_MPI = f"{CARPETA_MPI}/nodos.txt"
 SCRIPT_MPI = f"{CARPETA_MPI}/word2vec_paralelo_mpi.py"
 PROCESOS_MPI = 2
 
@@ -186,9 +187,10 @@ def ejecutar_paralelo(configuracion):
             trabajo["estado"] = "Ejecutando entrenamiento paralelo MPI"
 
         comando_mpi = (
-            f"{MPIRUN} -np {PROCESOS_MPI} "
-            f"{PYTHON_MPI} {SCRIPT_MPI} --config {config_remoto}"
-        )
+    f"{MPIRUN} --hostfile {HOSTFILE_MPI} "
+    f"-np {PROCESOS_MPI} "
+    f"{PYTHON_MPI} {SCRIPT_MPI} --config {config_remoto}"
+)
 
         proceso = subprocess.Popen(
             ["ssh", HOST_MPI, comando_mpi],
