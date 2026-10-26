@@ -35,28 +35,45 @@
                 <div class="top-chip"><span class="pulse"></span> Aplicación local</div>
             </header>
 
-            <section class="metric-grid" id="metricas">
-                <article class="metric-card">
-                    <div class="metric-top"><span>Experimentos guardados</span><span class="metric-icon purple">▦</span></div>
-                    <div class="metric-value" id="totalExperimentos">0</div>
-                    <div class="metric-foot">Archivos JSON encontrados</div>
-                </article>
-                <article class="metric-card">
-                    <div class="metric-top"><span>Último tiempo total</span><span class="metric-icon blue">◷</span></div>
-                    <div class="metric-value" id="ultimoTiempo">—</div>
-                    <div class="metric-foot">Según las métricas guardadas</div>
-                </article>
-                <article class="metric-card">
-                    <div class="metric-top"><span>Último vocabulario</span><span class="metric-icon green">Aa</span></div>
-                    <div class="metric-value" id="ultimoVocabulario">—</div>
-                    <div class="metric-foot">Cantidad de palabras únicas</div>
-                </article>
-                <article class="metric-card">
-                    <div class="metric-top"><span>Estado del trabajo</span><span class="metric-icon orange">●</span></div>
-                    <div class="metric-value small-value" id="estadoGeneral">Listo</div>
-                    <div class="metric-foot" id="duracionTrabajo">Sin ejecución activa</div>
-                </article>
-            </section>
+            
+<section class="metric-grid" id="metricas">
+    <article class="metric-card">
+        <div class="metric-top">
+            <span>Tiempo de ejecución</span>
+            <span class="metric-icon blue">◷</span>
+        </div>
+        <div class="metric-value" id="resultadoTiempo">—</div>
+        <div class="metric-foot">Duración total del entrenamiento</div>
+    </article>
+
+    <article class="metric-card">
+        <div class="metric-top">
+            <span>Tamaño del vocabulario</span>
+            <span class="metric-icon green">Aa</span>
+        </div>
+        <div class="metric-value" id="resultadoVocabulario">—</div>
+        <div class="metric-foot">Cantidad de palabras únicas</div>
+    </article>
+
+    <article class="metric-card">
+        <div class="metric-top">
+            <span>Dimensión de los vectores</span>
+            <span class="metric-icon purple">▦</span>
+        </div>
+        <div class="metric-value" id="resultadoDimension">—</div>
+        <div class="metric-foot">Valores por representación de palabra</div>
+    </article>
+
+    <article class="metric-card">
+        <div class="metric-top">
+            <span>Palabras procesadas</span>
+            <span class="metric-icon orange">≡</span>
+        </div>
+        <div class="metric-value" id="resultadoPalabras">—</div>
+        <div class="metric-foot">Total de palabras del corpus</div>
+    </article>
+</section>
+
 
             <section class="content-grid">
                 <article class="panel run-panel" id="ejecutar">
@@ -67,12 +84,23 @@
                     <p class="panel-description">Selecciona un corpus y el método de entrenamiento.</p>
 
                     
+
 <form id="formExperimento">
-    <label for="corpus">Corpus de texto</label>
-    <select id="corpus" required>
-        <option value="">Cargando corpus disponibles...</option>
-    </select>
-    <p class="field-help">Selecciona un archivo TXT de la carpeta datos/.</p>
+    
+
+<label for="corpus">Corpus de texto</label>
+
+<div class="selector-multiple" id="selectorMultiple">
+    <button type="button" id="corpus" class="selector-multiple-boton" aria-expanded="false">
+        <span id="textoCorpus">Cargando corpus disponibles...</span>
+        <span>▾</span>
+    </button>
+    <div id="opcionesCorpus" class="selector-multiple-opciones" hidden></div>
+</div>
+
+<p class="field-help">Selecciona uno o varios archivos TXT de la carpeta datos/.</p>
+
+
 
     <label for="modo">Método de entrenamiento</label>
     <select id="modo">
@@ -88,6 +116,7 @@
             <option value="skipgram">Skip-gram</option>
             <option value="cbow">CBOW</option>
         </select>
+
         <p class="field-help">Selecciona cómo aprenderá el modelo las representaciones.</p>
 
         <div class="config-fields">
@@ -123,6 +152,7 @@
     </button>
 </form>
 
+
                     <div class="message" id="mensaje" role="status"></div>
                 </article>
 
@@ -141,6 +171,37 @@
 Listo para ejecutar un experimento...</pre>
                     </div>
                     <button class="secondary-button" id="actualizarBtn" type="button">Actualizar datos</button>
+               
+<section class="comparacion-panel" id="panelComparacion">
+    <div class="comparacion-encabezado">
+        <span class="comparacion-etiqueta">ANÁLISIS DE RENDIMIENTO</span>
+        <h2>Comparación de tiempos</h2>
+        <p>Entrenamiento secuencial frente a procesamiento paralelo MPI</p>
+    </div>
+
+    <div class="comparacion-tarjetas">
+        <article class="comparacion-tarjeta">
+            <span class="metodo-icono">01</span>
+            <h3>Secuencial</h3>
+            <div class="tiempo-grande" id="tiempoSecuencial">—</div>
+            <span class="unidad-tiempo">segundos</span>
+        </article>
+
+        <article class="comparacion-tarjeta">
+            <span class="metodo-icono">02</span>
+            <h3>Paralelo MPI</h3>
+            <div class="tiempo-grande" id="tiempoParalelo">—</div>
+            <span class="unidad-tiempo">segundos</span>
+        </article>
+    </div>
+
+    <div class="comparacion-resultado" id="resultadoComparacion">
+        <h3>Esperando resultados</h3>
+        <p>Ejecuta ambos métodos para comparar sus tiempos.</p>
+    </div>
+</section>
+
+               
                 </article>
             </section>
 

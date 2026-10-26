@@ -5,6 +5,7 @@ import time
 import json
 import hashlib
 import platform
+from pathlib import Path
 from gensim.models import Word2Vec
 
 if platform.system() == "Windows":
@@ -21,15 +22,18 @@ def hash_estable(texto):
 
 
 class Corpus:
-    def __init__(self, ruta):
-        self.ruta = ruta
+    def __init__(self, rutas):
+        if isinstance(rutas, str):
+            rutas = [rutas]
+        self.rutas = rutas
 
     def __iter__(self):
-        with open(self.ruta, "r", encoding="utf-8", errors="replace") as archivo:
-            for linea in archivo:
-                palabras = linea.lower().split()
-                if palabras:
-                    yield palabras
+        for ruta in self.rutas:
+            with open(ruta, "r", encoding="utf-8", errors="replace") as archivo:
+                for linea in archivo:
+                    palabras = linea.lower().split()
+                    if palabras:
+                        yield palabras
 
 
 def obtener_configuracion():
@@ -52,8 +56,15 @@ def obtener_configuracion():
 
 def ejecutar():
     configuracion = obtener_configuracion()
+    rutas = configuracion.get("corpus", [])
 
-    ruta = configuracion.get("corpus", "").strip().strip('"').strip("'")
+    if isinstance(rutas, str):
+        rutas = [rutas.strip().strip('"').strip("'")]
+
+    if not rutas or not all(isinstance(ruta, str) and os.path.isfile(ruta) for ruta in rutas):
+        print("Error: uno o varios archivos no existen.")
+        raise SystemExit(1)
+
     dimension = int(configuracion.get("dimension", 100))
     ventana = int(configuracion.get("ventana", 5))
     epocas = int(configuracion.get("epocas", 20))
@@ -61,37 +72,33 @@ def ejecutar():
     trabajadores = int(configuracion.get("trabajadores", 1))
     algoritmo = configuracion.get("algoritmo", "skipgram")
 
-    if not os.path.isfile(ruta):
-        print("Error: el archivo no existe.")
-        raise SystemExit(1)
-
     if not 10 <= dimension <= 500:
         raise ValueError("La dimensión debe estar entre 10 y 500.")
-
     if not 1 <= ventana <= 20:
         raise ValueError("La ventana debe estar entre 1 y 20.")
-
     if not 1 <= epocas <= 100:
         raise ValueError("Las épocas deben estar entre 1 y 100.")
-
     if not 1 <= min_count <= 100:
         raise ValueError("La frecuencia mínima debe estar entre 1 y 100.")
-
     if not 1 <= trabajadores <= 32:
         raise ValueError("Los trabajadores deben estar entre 1 y 32.")
-
     if algoritmo not in ("skipgram", "cbow"):
         raise ValueError("El algoritmo debe ser skipgram o cbow.")
 
-    ruta = os.path.abspath(ruta)
-    nombre = os.path.splitext(os.path.basename(ruta))[0]
+    rutas = [os.path.abspath(ruta) for ruta in rutas]
+    nombre = (
+        Path(rutas[0]).stem
+        if len(rutas) == 1
+        else "varios_" + time.strftime("%Y%m%d_%H%M%S")
+    )
+
     directorio = os.path.dirname(os.path.abspath(__file__))
     resultados = os.path.join(directorio, "resultados")
     os.makedirs(resultados, exist_ok=True)
 
-    tamano = os.path.getsize(ruta)
+    tamano = sum(os.path.getsize(ruta) for ruta in rutas)
+    corpus = Corpus(rutas)
     inicio_total = time.perf_counter()
-    corpus = Corpus(ruta)
 
     modelo = Word2Vec(
         vector_size=dimension,
@@ -116,13 +123,11 @@ def ejecutar():
     vocabulario = len(modelo.wv)
 
     inicio = time.perf_counter()
-
     modelo.train(
         corpus_iterable=corpus,
         total_examples=modelo.corpus_count,
         epochs=epocas
     )
-
     tiempo_entrenamiento = time.perf_counter() - inicio
 
     ruta_modelo = os.path.join(
@@ -133,25 +138,24 @@ def ejecutar():
     inicio = time.perf_counter()
     modelo.save(ruta_modelo)
     tiempo_guardado = time.perf_counter() - inicio
-
     tiempo_total = time.perf_counter() - inicio_total
 
     if platform.system() == "Windows":
-        memoria_mb = (
-            psutil.Process(os.getpid()).memory_info().rss / (1024 ** 2)
-        )
+        memoria_mb = psutil.Process(os.getpid()).memory_info().rss / (1024 ** 2)
     else:
-        memoria_mb = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        )
+        memoria_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
     metricas = {
         "modo": "secuencial",
-        "archivo": ruta,
+        "archivo": ", ".join(os.path.basename(ruta) for ruta in rutas),
+        "archivos": rutas,
+        "cantidad_archivos": len(rutas),
         "tamano_bytes": tamano,
         "tamano_mb": round(tamano / (1024 ** 2), 3),
         "oraciones": int(oraciones),
         "palabras_totales": int(palabras_totales),
+        "palabras": int(palabras_totales),
+        "palabras_procesadas": int(palabras_totales),
         "vocabulario": vocabulario,
         "dimension": dimension,
         "ventana": ventana,
@@ -181,14 +185,14 @@ def ejecutar():
         json.dump(metricas, archivo, ensure_ascii=False, indent=2)
 
     print("\nENTRENAMIENTO SECUENCIAL FINALIZADO")
-    print("Archivo:", ruta)
+    print("Archivos:", metricas["archivo"])
+    print("Cantidad de archivos:", len(rutas))
     print("Algoritmo:", algoritmo)
     print("Dimensión:", dimension)
     print("Ventana:", ventana)
     print("Épocas:", epocas)
     print("Frecuencia mínima:", min_count)
-    print("Trabajadores:", trabajadores)
-    print("Tamaño (MB):", metricas["tamano_mb"])
+    print("Tamaño total (MB):", metricas["tamano_mb"])
     print("Oraciones:", oraciones)
     print("Palabras totales:", palabras_totales)
     print("Vocabulario:", vocabulario)

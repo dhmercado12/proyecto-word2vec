@@ -12,6 +12,12 @@ CARPETA = Path(__file__).resolve().parent
 CARPETA_DATOS = CARPETA / "datos"
 CARPETA_RESULTADOS = CARPETA / "resultados"
 SCRIPT_SECUENCIAL = CARPETA / "word2vec_secuencial_stream.py"
+HOST_MPI = "mpiuser@192.168.44.133"
+CARPETA_MPI = "/head/NFS/mpiuser/proyecto_word2vec"
+PYTHON_MPI = f"{CARPETA_MPI}/word2vec-env/bin/python"
+MPIRUN = "/opt/openmpi/4.1.5/bin/mpirun"
+SCRIPT_MPI = f"{CARPETA_MPI}/word2vec_paralelo_mpi.py"
+PROCESOS_MPI = 2
 
 trabajo = {
     "activo": False,
@@ -116,6 +122,149 @@ def ejecutar_secuencial(configuracion):
             trabajo["error"] = str(error)
 
 
+def ejecutar_paralelo(configuracion):
+    nombre = f"web_{int(time.time())}"
+    corpus_local = CARPETA_RESULTADOS / f"corpus_{nombre}.txt"
+    config_local = CARPETA_RESULTADOS / f"config_{nombre}.json"
+
+    corpus_remoto = f"{CARPETA_MPI}/datos/corpus_{nombre}.txt"
+    config_remoto = f"{CARPETA_MPI}/config_{nombre}.json"
+    ruta_metricas_remota = f"{CARPETA_MPI}/resultados/metricas_paralelo_mpi_{nombre}.json"
+    ruta_modelo_remota = f"{CARPETA_MPI}/resultados/modelo_paralelo_mpi_{nombre}.model"
+
+    try:
+        with candado:
+            trabajo["activo"] = True
+            trabajo["estado"] = "Preparando corpus para MPI"
+            trabajo["salida"] = ""
+            trabajo["inicio"] = time.time()
+            trabajo["fin"] = None
+            trabajo["error"] = ""
+
+        with corpus_local.open("wb") as salida:
+            for ruta in configuracion["corpus"]:
+                with open(ruta, "rb") as entrada:
+                    contenido = entrada.read()
+                salida.write(contenido)
+                if contenido and not contenido.endswith(b"\n"):
+                    salida.write(b"\n")
+
+        configuracion_mpi = {
+            "corpus": corpus_remoto,
+            "nombre": nombre,
+            "dimension": configuracion["dimension"],
+            "ventana": configuracion["ventana"],
+            "epocas": configuracion["epocas"],
+            "min_count": configuracion["min_count"],
+            "algoritmo": configuracion["algoritmo"],
+            "archivos_originales": [
+                Path(ruta).name for ruta in configuracion["corpus"]
+            ]
+        }
+
+        with config_local.open("w", encoding="utf-8") as archivo:
+            json.dump(configuracion_mpi, archivo, ensure_ascii=False, indent=2)
+
+        comandos_copia = [
+            ["scp", str(corpus_local), f"{HOST_MPI}:{corpus_remoto}"],
+            ["scp", str(config_local), f"{HOST_MPI}:{config_remoto}"]
+        ]
+
+        for comando in comandos_copia:
+            resultado = subprocess.run(
+                comando,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120
+            )
+            if resultado.returncode != 0:
+                raise RuntimeError(resultado.stderr or "Falló la transferencia por SCP.")
+
+        with candado:
+            trabajo["estado"] = "Ejecutando entrenamiento paralelo MPI"
+
+        comando_mpi = (
+            f"{MPIRUN} -np {PROCESOS_MPI} "
+            f"{PYTHON_MPI} {SCRIPT_MPI} --config {config_remoto}"
+        )
+
+        proceso = subprocess.Popen(
+            ["ssh", HOST_MPI, comando_mpi],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1
+        )
+
+        for linea in proceso.stdout:
+            with candado:
+                trabajo["salida"] += linea
+
+        codigo = proceso.wait()
+
+        if codigo != 0:
+            raise RuntimeError(
+                f"MPI terminó con código {codigo}. Revisa la salida del proceso."
+            )
+
+        for ruta_remota, ruta_local in [
+            (
+                ruta_metricas_remota,
+                CARPETA_RESULTADOS / f"metricas_paralelo_mpi_{nombre}.json"
+            ),
+            (
+                ruta_modelo_remota,
+                CARPETA_RESULTADOS / f"modelo_paralelo_mpi_{nombre}.model"
+            )
+        ]:
+            resultado = subprocess.run(
+                ["scp", f"{HOST_MPI}:{ruta_remota}", str(ruta_local)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=300
+            )
+            if resultado.returncode != 0:
+                raise RuntimeError(
+                    resultado.stderr or "No se pudieron recuperar los resultados de MPI."
+                )
+
+        with candado:
+            trabajo["estado"] = "Entrenamiento paralelo finalizado"
+
+    except Exception as error:
+        with candado:
+            trabajo["estado"] = "El entrenamiento paralelo terminó con error"
+            trabajo["error"] = str(error)
+
+    finally:
+        try:
+            subprocess.run(
+                [
+                    "ssh", HOST_MPI,
+                    f"rm -f '{corpus_remoto}' '{config_remoto}'"
+                ],
+                capture_output=True,
+                timeout=30
+            )
+        except Exception:
+            pass
+
+        for archivo in (corpus_local, config_local):
+            try:
+                archivo.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+        with candado:
+            trabajo["activo"] = False
+            trabajo["fin"] = time.time()
+
 
 @app.route("/")
 def inicio():
@@ -154,25 +303,29 @@ def api_estado():
 
 
 
+
 @app.route("/api/ejecutar", methods=["POST"])
 def api_ejecutar():
     datos = request.get_json(silent=True) or {}
     modo = datos.get("modo", "secuencial")
-    ruta = datos.get("corpus", "")
+    rutas = datos.get("corpus", [])
 
-    if modo == "paralelo":
+    if isinstance(rutas, str):
+        rutas = [rutas]
+
+    if not rutas or not all(isinstance(ruta, str) for ruta in rutas):
         return jsonify({
             "ok": False,
-            "mensaje": "La ejecución MPI todavía no está conectada."
+            "mensaje": "Selecciona uno o varios archivos TXT."
         }), 400
 
-    if modo != "secuencial":
+    if modo not in ("secuencial", "paralelo"):
         return jsonify({
             "ok": False,
             "mensaje": "Selecciona un método de entrenamiento válido."
         }), 400
 
-    if not SCRIPT_SECUENCIAL.exists():
+    if modo == "secuencial" and not SCRIPT_SECUENCIAL.exists():
         return jsonify({
             "ok": False,
             "mensaje": "No se encontró word2vec_secuencial_stream.py."
@@ -180,15 +333,20 @@ def api_ejecutar():
 
     corpus_validos = {item["ruta"] for item in obtener_corpus()}
 
-    if ruta not in corpus_validos:
+    if len(rutas) != len(set(rutas)) or not all(
+        ruta in corpus_validos for ruta in rutas
+    ):
         return jsonify({
             "ok": False,
-            "mensaje": "Selecciona un archivo TXT disponible en datos/."
+            "mensaje": "Uno o varios archivos seleccionados no son válidos."
         }), 400
 
     try:
         configuracion = {
-            "corpus": str((CARPETA / ruta).resolve()),
+            "corpus": [
+                str((CARPETA / ruta).resolve())
+                for ruta in rutas
+            ],
             "dimension": int(datos.get("dimension", 100)),
             "ventana": int(datos.get("ventana", 5)),
             "epocas": int(datos.get("epocas", 20)),
@@ -227,8 +385,13 @@ def api_ejecutar():
 
         trabajo["activo"] = True
 
+    funcion_entrenamiento = (
+        ejecutar_paralelo if modo == "paralelo"
+        else ejecutar_secuencial
+    )
+
     hilo = threading.Thread(
-        target=ejecutar_secuencial,
+        target=funcion_entrenamiento,
         args=(configuracion,),
         daemon=True
     )
@@ -236,9 +399,12 @@ def api_ejecutar():
 
     return jsonify({
         "ok": True,
-        "mensaje": "Entrenamiento secuencial iniciado con los parámetros seleccionados."
+        "mensaje": (
+            "Entrenamiento paralelo MPI iniciado en compute1."
+            if modo == "paralelo"
+            else "Entrenamiento secuencial iniciado con los parámetros seleccionados."
+        )
     })
-
 
 
 if __name__ == "__main__":

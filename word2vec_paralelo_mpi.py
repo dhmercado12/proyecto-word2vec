@@ -1,14 +1,14 @@
-
 import os
 import time
 import json
-import socket
 import hashlib
-import resource
-from collections import Counter
-from mpi4py import MPI
+import platform
 from gensim.models import Word2Vec
 
+if platform.system() == "Windows":
+    import psutil
+else:
+    import resource
 comunicador = MPI.COMM_WORLD
 rango = comunicador.Get_rank()
 total = comunicador.Get_size()
