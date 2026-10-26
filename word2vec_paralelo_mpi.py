@@ -68,8 +68,25 @@ else:
 
 configuracion = comunicador.bcast(configuracion, root=0)
 
-ruta = configuracion["corpus"]
+ruta_config = configuracion["corpus"]
+
+if isinstance(ruta_config, dict):
+    ruta = (
+        ruta_config.get("ruta")
+        or ruta_config.get("path")
+        or ruta_config.get("filepath")
+    )
+else:
+    ruta = ruta_config
+
+if not isinstance(ruta, str) or not ruta:
+    raise ValueError(
+        f"Ruta del corpus no válida: {ruta_config!r}"
+    )
 nombre_resultado = configuracion["nombre"]
+
+if isinstance(ruta, dict):
+    ruta = ruta.get("ruta") or ruta.get("path")
 dimension = int(configuracion["dimension"])
 ventana = int(configuracion["ventana"])
 epocas = int(configuracion["epocas"])
